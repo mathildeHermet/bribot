@@ -5,8 +5,9 @@ const (
 	flagWebhookUrl   = "webhook-url"
 	flagCTFName      = "ctf-name"
 	flagCTFURL       = "ctf-url"
-	flagStartDate    = "start-date"
-	flagEndDate      = "end-date"
+	flagStartDate    = "ctf-date-start"
+	flagEndDate      = "ctf-date-end"
+	flagTz           = "ctf-date-tz"
 	flagTeamName     = "team-name"
 	flagTeamPassword = "team-password"
 )
