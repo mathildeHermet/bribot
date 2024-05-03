@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"time"
 
+	"errors"
+
 	"github.com/mathildeHermet/bribot/internal/discord"
+	"github.com/mathildeHermet/bribot/internal/log"
 )
 
 type Challenge struct {
@@ -16,40 +19,48 @@ type Challenge struct {
 	deadline  time.Time
 }
 
-func NewChallenge(name, url, teamName, teamPwd, beginning, deadline, layout string) (*Challenge, error) {
-	//  "Mon, 02 Jan 2006 15:04:05 MST"
-	b, err := time.Parse(layout, beginning)
+func NewChallenge(logger log.Logger, name, url, teamName, teamPwd, beginning, deadline, tz, layout string) (*Challenge, error) {
+	// Parse input timezone
+	location, err := time.LoadLocation(tz)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot parse start date")
+		err = errors.New(fmt.Sprintf("Invalid timezone: %s: %+v", tz, err))
+		return nil, err
 	}
-	d, err := time.Parse(layout, deadline)
+	// Parse input date/time
+	startTime, err := time.ParseInLocation(layout, beginning, location)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot parse end date")
+		err := errors.New(fmt.Sprintf("Invalid start date/time: %+v", err))
+		return nil, err
+	}
+	endTime, err := time.ParseInLocation(layout, deadline, location)
+	if err != nil {
+		err := errors.New(fmt.Sprintf("Invalid end date/time: %+v", err))
+		return nil, err
 	}
 
-	// Load Paris location (Europe/Paris is always UTC+2)
-	loc, err := time.LoadLocation("Europe/Paris")
-	if err != nil {
-		return nil, fmt.Errorf("Cannot load Paris location: %v", err)
-	}
-
-	// Convert to Paris local time
-	localBegin := b.In(loc)
-	localEnd := d.In(loc)
-
-	duration := d.Sub(b)
+	duration := endTime.Sub(startTime)
 	if duration < 0 {
 		return nil, fmt.Errorf("End date should be after start date")
 	}
+	// Convert to Paris timezone
+	parisLocation, err := time.LoadLocation("Europe/Paris")
+	if err != nil {
+		err := errors.New(fmt.Sprintf("Error loading Paris timezone: %+v", err))
+		return nil, err
+	}
+
+	startTimeParis := startTime.In(parisLocation)
+	endTimeParis := endTime.In(parisLocation)
 
 	return &Challenge{
 		name:      name,
 		url:       url,
 		teamName:  teamName,
 		teamPwd:   teamPwd,
-		beginning: localBegin,
-		deadline:  localEnd,
+		beginning: startTimeParis,
+		deadline:  endTimeParis,
 	}, nil
+
 }
 
 func (c *Challenge) remainingTime() string {
